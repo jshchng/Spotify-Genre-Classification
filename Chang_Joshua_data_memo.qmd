@@ -1,0 +1,38 @@
+---
+title: "Final Project Check-Up Memo"
+author: "Joshua Chang"
+date: 2023-01-22
+format:
+  html:
+    toc: true
+    embed-resources: true
+    code-fold: show
+    link-external-newwindow: true
+    
+execute:
+  warning: false
+  echo: false
+  
+from: markdown+emoji 
+---
+
+# Spotify Dataset
+
+## Project Timeline
+
+I have already loaded the dataset into R as was a simple csv file download. The dataset appears to be quite straightforward and comprehensible as I will be focusing on the relationship between audio feature variables and genre.
+
+```{r}
+# load data
+library(tidyverse)
+spotify <- read_csv("data/genres.csv")
+spotify
+```
+
+## Overview
+
+This dataset contains information on audio features per genre in the Spotify app. Using a dataset provided on [Kaggle](https://www.kaggle.com/datasets/mrmorj/dataset-of-songs-in-spotify?resource=download) by Andrii Samoshyn, we can explore the numerous variables that are associated with the app. I collected this dataset with a simple download from the Kaggle website. There are over 40000 observations for 22 variables, with most being audio feature variables. Audio feature variables describe different components of a song, such as 'acousticness' and 'danceability.' There appear to be no missing values, and this is the only source of data I need.
+
+## Prediction Problem
+
+The response variable in question is 'genre' while the audio feature variables are predictors. This is therefore a classification problem. There are certain variables that may be particularly useful: 'energy,' 'loudness,' 'speechiness,' 'instrumentalness.' With variables such as these, I can expect that genre is determined based on the levels of these variables. For example, higher 'energy' and 'loudness' values may correlate to pop or electronic dance music genres while lower values might indicate quieter, lower energy genres. Although this is a classification problem, there does not appear to be an imbalance. There were no difficulties as of yet as the dataset was a simple file download.

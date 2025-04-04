@@ -1,0 +1,47 @@
+---
+title: "STAT 301-2 Final Project Check-Up"
+author: "Joshua Chang"
+date: 2023-02-26
+format:
+  html:
+    toc: true
+    embed-resources: true
+    code-fold: show
+    link-external-newwindow: true
+    
+execute:
+  warning: false
+  echo: false
+  
+from: markdown+emoji 
+---
+
+# Spotify Dataset
+
+I have obtained this Spotify dataset from \[Kaggle\](https://www.kaggle.com/datasets/mrmorj/dataset-of-songs-in-spotify?resource=download) by Andrii Samoshyn. I will be exploring the relationships with the outcome variable 'genre' with the other predictors, the audio feature variables.
+
+## Data Organization
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+tidymodels_prefer()
+
+spotify <- read_csv("data/genres.csv") %>% 
+  janitor::clean_names()
+skimr::skim(spotify)
+
+ggplot(spotify, aes(genre)) +
+  geom_bar() +
+  theme_minimal()
+
+spotify_split <- initial_split(spotify, prop = 0.8, strata = genre)
+spotify_train <- training(spotify_split)
+spotify_test <- testing(spotify_split)
+```
+
+There does not appear any major problems with the dataset as this is a classification problem. The distribution shows the spread across the different genres; a boxplot/density plot was not possible here.
+
+## Outline for Splitting Data
+
+I will be performing an initial split with a proportion of 0.80, stratifying by my outcome variable genre. I will be stratifying when I split so that the distributions are similar for both the training and testing sets when I split the data.

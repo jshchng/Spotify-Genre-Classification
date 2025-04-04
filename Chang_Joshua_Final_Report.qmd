@@ -1,0 +1,256 @@
+---
+title: "Spotify's Genre Determination"
+author: "Joshua Chang"
+date: 2023-03-15
+format:
+  html:
+    toc: true
+    embed-resources: true
+    code-fold: show
+    link-external-newwindow: true
+    
+execute:
+  warning: false
+  echo: false
+  
+from: markdown+emoji 
+---
+
+## Introduction
+
+Using the Spotify dataset provided on [Kaggle](https://www.kaggle.com/datasets/mrmorj/dataset-of-songs-in-spotify?resource=download) by Andrii Samoshyn, I will be examining the determination of genre using the given audio feature variables that Spotify uses. As Spotify is widely and globally used, I want to observe and analysis how Spotify is able to determine and assign a genre to a song that is then used to provide recommendations to users. There are over 40000 observations with most being audio feature variables, such as danceability and acousticness.
+
+## Data Overview
+
+```{r}
+#| echo: false
+
+library(tidyverse)
+library(tidymodels)
+library(knitr)
+library(parsnip)
+tidymodels_prefer()
+
+spotify <- read_csv("data/genres.csv") %>% 
+  janitor::clean_names()
+skimr::skim(spotify)
+```
+
+Upon initial analysis of the dataset, I noticed that there are no missing values for the variables of interest. The outcome variable that I am examining in response to the audio feature variables is 'genre'. This variable consists of fifteen unique genres, such as trap, hip-hop, underground rap, pop, etc. After first loading the data, I noticed that the majority of the data and its observations fall under the 'underground rap' genre. Here I am demonstrating the distributions for the audio feature variables by each genre. Additionally, I examined some potentially interesting relationships between a few of the variables, such as loudness vs. energy and danceability vs. speechiness, to observe if there are any correlations between variables.
+
+```{r}
+#| echo: false
+
+ggplot(spotify, aes(genre)) +
+  geom_bar() +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 50, vjust = .75),
+    legend.position = "none"
+  ) +
+  ggtitle("Song Distribution Per Genre")
+
+ggplot(spotify, aes(danceability, color = genre)) +
+  geom_freqpoly() +
+  theme_minimal()
+
+ggplot(spotify, aes(energy, color = genre)) +
+  geom_freqpoly() +
+  theme_minimal()
+
+ggplot(spotify, aes(loudness, color = genre)) +
+  geom_freqpoly() +
+  theme_minimal()
+
+ggplot(spotify, aes(speechiness, color = genre)) +
+  geom_freqpoly() +
+  theme_minimal()
+
+ggplot(spotify, aes(acousticness, color = genre)) +
+  geom_freqpoly() +
+  theme_minimal()
+
+ggplot(spotify, aes(instrumentalness, color = genre)) +
+  geom_freqpoly() +
+  theme_minimal()
+
+ggplot(spotify, aes(liveness, color = genre)) +
+  geom_freqpoly() +
+  theme_minimal()
+
+ggplot(spotify, aes(valence, color = genre)) +
+  geom_freqpoly() +
+  theme_minimal()
+
+ggplot(spotify, aes(tempo, color = genre)) +
+  geom_freqpoly() +
+  theme_minimal()
+
+ggplot(spotify, aes(energy, loudness, color = genre, fill = genre), alpha = 0.2) +
+  geom_point() +
+  labs(
+    x = "Energy",
+    y = "Loudness",
+    title = "Loudness vs. Energy"
+  ) +
+  theme_dark()
+
+ggplot(spotify, aes(danceability, speechiness, color = genre, fill = genre), alpha = 0.2) +
+  geom_point() +
+  labs(
+    x = "Danceability",
+    y = "Speechiness",
+    title = "Danceability vs. Speechiness"
+  ) +
+  theme_dark()
+```
+
+
+
+## Methods
+
+For this dataset, I will be utilizing the following models: decision trees and k-nearest neighbor. The decision tree model can be used to interpret, visualize, and identify which audio feature variables are most important in determining the genre of a song. K-nearest neighbor models are used to classify a new observation by finding the k observations in the training set that are closest to it and assigning it the class most common among those k neighbors. I will be tuning the minimum number samples 'min_n' parameter for the decision tree model and the 'neighbors' parameter for the k-nearest neighbor model. The recipe I will be using has 'genre' against all of the audio feature variables. I will be using repeated V-fold cross-validation in this situation to reduce the variance in the performance estimate of the model so that the evaluation of the model is more reliable. For this project, I will be utilizing the ROC curve and precision values to select the best model.
+
+## Model Building & Selection Results
+
+After tuning both the decision tree and knn models using grid search and cross-validation, I was able to achieve improved performance. Overall, I noticed that the knn model had a higher ROC value than the decision tree model. However, it is important to note that the decision tree model had a higher precision value than the knn model, indicating that it was better at correctly predicting the positive cases (i.e. correctly identifying the genre).
+
+Further tuning could be explored in the future, such as adjusting the number of neighbors for the knn model or exploring different splitting criteria for the decision tree model. Additionally, other models could be explored and compared, such as random forests or support vector machines.
+
+In terms of systematic differences in performance between the model types, I observed that the decision tree model had a higher precision value, indicating that it was better at identifying the positive cases (correctly predicting the genre). On the other hand, the knn model had a higher ROC value, indicating that it was better at overall classification performance.
+
+Based on my analysis and comparison of performance metrics, I select the knn model as our final/winning model. While the decision tree model had a higher precision value, I prioritize overall classification performance, which the knn model excelled at with its higher ROC value. It was not particularly surprising that the knn model won, as it is a commonly used classification algorithm that is known for its performance in many scenarios.
+
+```{r}
+#| echo: false
+
+set.seed(710)
+spotify_split <- initial_split(spotify, prop = 0.8, strata = genre)
+spotify_train <- training(spotify_split)
+spotify_test <- testing(spotify_split)
+
+# decision trees
+tree_model <- 
+  decision_tree(min_n = tune()) %>% 
+  set_engine("rpart") %>% 
+  set_mode("classification")
+
+# k-nearest neighbor model
+knn_model <- nearest_neighbor(neighbors = tune()) %>%
+  set_engine("kknn") %>%
+  set_mode("classification")
+
+# recipe building
+spotify_recipe <- recipe(
+  genre ~ danceability + energy + key + loudness + mode + speechiness + acousticness + instrumentalness + liveness + valence + tempo, data = spotify_train
+) %>% 
+  step_normalize(all_numeric_predictors())
+
+spotify_folds <- vfold_cv(spotify_train, v = 5, repeats = 3)
+
+# model workflows
+tree_wflow <- workflow() %>%
+  add_recipe(spotify_recipe) %>%
+  add_model(tree_model)
+
+tree_fit <- fit(tree_wflow, spotify_train)
+
+knn_wflow <- workflow() %>%
+  add_recipe(spotify_recipe) %>%
+  add_model(knn_model)
+
+spotify_train_ds <- spotify_train %>%
+  sample_n(10000)
+knn_fit <- fit(knn_wflow, spotify_train_ds)
+
+# parameters & grids
+tree_params <- parameters(tree_model)
+tree_grid <- grid_regular(min_n(range = c(2, 20)))
+
+knn_params <- parameters(knn_model)
+knn_grid <- grid_regular(neighbors(range = c(1, 20)))
+```
+
+```{r}
+#| echo: false
+#| eval: false
+
+# tuning
+tree_tuned <- tune_grid(
+  tree_wflow,
+  resamples = spotify_folds,
+  grid = tree_grid,
+  metrics = metric_set(roc_auc, precision, f_meas)
+)
+
+knn_tuned <- tune_grid(
+  knn_wflow,
+  resamples = spotify_folds,
+  grid = knn_grid,
+  metrics = metric_set(roc_auc, precision, f_meas)
+)
+```
+
+```{r}
+#| echo: false
+
+load("results/tree_tuned.rds")
+load("results/knn_tuned.rds")
+
+collect_metrics(tree_tuned)
+collect_metrics(knn_tuned)
+```
+
+```{r}
+#| echo: false
+
+tree_best <- select_best(tree_tuned, "roc_auc")
+knn_best <- select_best(knn_tuned, "roc_auc")
+
+best_tree <- show_best(tree_tuned, metric = "roc_auc")[1,]
+best_knn <- show_best(knn_tuned, metric = "roc_auc")[1,]
+
+best_roc <- tibble(model = c("Tree", "KNN"),
+                    ROC_AUC = c(best_tree$mean, best_knn$mean),
+                    se = c(best_tree$std_err, best_knn$std_err)
+                  )
+
+best_roc
+```
+
+
+## Final Model Analysis
+
+The final KNN model was selected based on its high ROC AUC score on the testing data. This model was fit to the testing data and performance was assessed with a confusion matrix. The confusion matrix showed that the model correctly predicted genres according to the 'truth'.
+
+The outcome variable was not transformed in this analysis.
+
+Overall, the KNN model was the best performing model out of the ones tested, but it is important to note that the effort of building a predictive model should always be considered in relation to the payoff. In this case, the model did not significantly outperform a null model, which would simply predict the most frequent genre (rap) every time.
+
+One potential feature of the KNN model that made it the best was its ability to fit nonlinearity well. However, there is still room for further exploration and tuning of the model in future analyses.
+
+```{r}
+#| echo: false
+
+knn_pred <- predict(knn_fit, new_data = spotify_test) %>%
+  bind_cols(spotify_test) %>%
+  select(genre, starts_with(".pred"))
+knn_pred
+
+conf_mat <- knn_pred %>% 
+  mutate(genre = as.factor(genre)) %>% 
+  conf_mat(genre, starts_with(".pred_"))
+conf_mat
+```
+
+## Conclusion
+
+In conclusion, my analysis shows that it is possible to predict music genre based on audio features with a reasonable degree of accuracy. Among the various models and tuning strategies explored, the K-nearest neighbors (KNN) algorithm and Euclidean distance metric performed the best in terms of the ROC AUC metric on the testing set. The final model achieved a high ROC AUC score, indicating that it can distinguish between different genres with high accuracy.
+
+It is worth noting that while the KNN model performed well, there is still room for improvement. One potential avenue for future work could be to explore more advanced machine learning algorithms, such as neural networks or gradient boosting, which may be able to capture more complex relationships between the audio features and genre. Additionally, it may be beneficial to consider other features or data sources, such as lyrics or artist information, to further improve the predictive performance.
+
+Overall, the results of this analysis demonstrate the potential of machine learning to automate the genre classification process in music, which can be useful in various applications such as music recommendation systems, playlist curation, and music indexing.
+
+## References
+
+https://www.kaggle.com/datasets/mrmorj/dataset-of-songs-in-spotify?resource=download by Andrii Samoshyn

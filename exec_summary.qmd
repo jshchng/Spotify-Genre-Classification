@@ -1,0 +1,27 @@
+---
+title: "Executive Summary"
+author: "Joshua Chang"
+date: 2023-03-15
+format:
+  html:
+    toc: true
+    embed-resources: true
+    code-fold: show
+    link-external-newwindow: true
+    
+execute:
+  warning: false
+  echo: false
+  
+from: markdown+emoji 
+---
+
+## Executive Summary
+
+The purpose of this report was to build a predictive model for music genre classification using machine learning techniques. We explored two different models: decision tree and k-nearest neighbors (knn), each trained on a training set with 80% of the data and evaluated using a validation set with 20% of the data. We used the area under the receiver operating characteristic curve (ROC AUC) as the primary metric for model selection.
+
+After tuning the hyperparameters, we found that the knn model performed the best. We then fit the knn model to the testing set and found that it achieved a rather high ROC AUC, indicating good performance in generalizing to new data.
+
+In terms of next steps, there are several avenues for future work. One possibility would be to explore additional feature engineering techniques to improve model performance. Another possibility would be to investigate the performance of more complex models such as neural networks or ensemble methods. Overall, our results suggest that machine learning techniques can be effective for music genre classification, and further investigation is warranted.
+
+\
